@@ -29,19 +29,50 @@ export default function CustomerPortalForm({ subscription }: Props) {
   const currentPath = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const subscriptionPrice =
-    subscription &&
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: subscription?.prices?.currency!,
-      minimumFractionDigits: 0
-    }).format((subscription?.prices?.unit_amount || 0) / 100);
+  const [portalError, setPortalError] = useState<string | null>(null);
+  const price = subscription?.prices;
+  let subscriptionPrice: string | null = null;
+
+  if (
+    price?.currency &&
+    price.unit_amount !== null &&
+    Number.isFinite(price.unit_amount)
+  ) {
+    try {
+      const formatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: price.currency
+      });
+      const fractionDigits = formatter.resolvedOptions().maximumFractionDigits;
+      subscriptionPrice = formatter.format(
+        price.unit_amount / 10 ** fractionDigits
+      );
+    } catch {
+      // Incomplete or invalid billing data should not break the account page.
+    }
+  }
+
+  const intervalCount = price?.interval_count ?? 1;
+  const billingInterval = price?.interval
+    ? intervalCount === 1
+      ? price.interval
+      : `${intervalCount} ${price.interval}s`
+    : null;
+  const planName = price?.products?.name;
 
   const handleStripePortalRequest = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
-    const redirectUrl = await createStripePortal(currentPath);
-    setIsSubmitting(false);
-    return router.push(redirectUrl);
+    setPortalError(null);
+    try {
+      const redirectUrl = await createStripePortal(currentPath);
+      if (!redirectUrl) throw new Error('Missing portal URL');
+      router.push(redirectUrl);
+    } catch {
+      setPortalError('Unable to open billing. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -49,7 +80,9 @@ export default function CustomerPortalForm({ subscription }: Props) {
       title="Your Plan"
       description={
         subscription
-          ? `You are currently on the ${subscription?.prices?.products?.name} plan.`
+          ? planName
+            ? `You are currently on the ${planName} plan.`
+            : 'You currently have a subscription.'
           : 'You are not currently subscribed to any plan.'
       }
       footer={
@@ -59,6 +92,7 @@ export default function CustomerPortalForm({ subscription }: Props) {
             variant="slim"
             onClick={handleStripePortalRequest}
             loading={isSubmitting}
+            disabled={isSubmitting}
           >
             Open customer portal
           </Button>
@@ -67,11 +101,20 @@ export default function CustomerPortalForm({ subscription }: Props) {
     >
       <div className="mt-8 mb-4 text-xl font-semibold">
         {subscription ? (
-          `${subscriptionPrice}/${subscription?.prices?.interval}`
+          subscriptionPrice
+            ? billingInterval
+              ? `${subscriptionPrice}/${billingInterval}`
+              : subscriptionPrice
+            : 'Billing details are currently unavailable.'
         ) : (
           <Link href="/">Choose your plan</Link>
         )}
       </div>
+      {portalError && (
+        <p role="alert" className="text-red-400">
+          {portalError}
+        </p>
+      )}
     </Card>
   );
 }
