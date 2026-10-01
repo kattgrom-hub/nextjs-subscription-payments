@@ -17,7 +17,8 @@ export default function PasswordSignIn({
   allowEmail,
   redirectMethod
 }: PasswordSignInProps) {
-  const router = redirectMethod === 'client' ? useRouter() : null;
+  const clientRouter = useRouter();
+  const router = redirectMethod === 'client' ? clientRouter : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -80,7 +81,7 @@ export default function PasswordSignIn({
       )}
       <p>
         <Link href="/signin/signup" className="font-light text-sm">
-          Don't have an account? Sign up
+          Don&apos;t have an account? Sign up
         </Link>
       </p>
     </div>

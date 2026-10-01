@@ -43,7 +43,8 @@ export default function CustomerPortalForm({ subscription }: Props) {
         style: 'currency',
         currency: price.currency
       });
-      const fractionDigits = formatter.resolvedOptions().maximumFractionDigits;
+      const fractionDigits =
+        formatter.resolvedOptions().maximumFractionDigits ?? 2;
       subscriptionPrice = formatter.format(
         price.unit_amount / 10 ** fractionDigits
       );
