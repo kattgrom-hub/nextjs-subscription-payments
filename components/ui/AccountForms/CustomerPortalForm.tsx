@@ -43,11 +43,33 @@ export default function CustomerPortalForm({ subscription }: Props) {
         style: 'currency',
         currency: price.currency
       });
-      const fractionDigits =
-        formatter.resolvedOptions().maximumFractionDigits ?? 2;
-      subscriptionPrice = formatter.format(
-        price.unit_amount / 10 ** fractionDigits
-      );
+      // Stripe charge units differ from display precision for ISK and UGX.
+      // HUF and TWD also use two-decimal charge units (payout rules differ).
+      const currency = price.currency.toUpperCase();
+      const zeroDecimalCurrencies = [
+        'BIF',
+        'CLP',
+        'DJF',
+        'GNF',
+        'JPY',
+        'KMF',
+        'KRW',
+        'MGA',
+        'PYG',
+        'RWF',
+        'VND',
+        'VUV',
+        'XAF',
+        'XOF',
+        'XPF'
+      ];
+      const threeDecimalCurrencies = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
+      const divisor = zeroDecimalCurrencies.includes(currency)
+        ? 1
+        : threeDecimalCurrencies.includes(currency)
+          ? 1000
+          : 100;
+      subscriptionPrice = formatter.format(price.unit_amount / divisor);
     } catch {
       // Incomplete or invalid billing data should not break the account page.
     }
@@ -102,11 +124,15 @@ export default function CustomerPortalForm({ subscription }: Props) {
     >
       <div className="mt-8 mb-4 text-xl font-semibold">
         {subscription ? (
-          subscriptionPrice
-            ? billingInterval
-              ? `${subscriptionPrice}/${billingInterval}`
-              : subscriptionPrice
-            : 'Billing details are currently unavailable.'
+          subscriptionPrice ? (
+            billingInterval ? (
+              `${subscriptionPrice}/${billingInterval}`
+            ) : (
+              subscriptionPrice
+            )
+          ) : (
+            'Billing details are currently unavailable.'
+          )
         ) : (
           <Link href="/">Choose your plan</Link>
         )}
